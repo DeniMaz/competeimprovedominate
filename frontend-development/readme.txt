@@ -1,0 +1,1 @@
+Hier befindet sich das React Native Projekt für die Frontend Entwicklung
