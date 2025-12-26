@@ -1,13 +1,30 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, Button, ActivityIndicator } from 'react-native';
-import { BACKEND_URL } from '@env'
+import { BACKEND_URL } from '@env';
 
+// Import der ausgelagerten Screens | Import of externalized screens
+import HomeScreen from './src/screens/HomeScreen';
+import LoginScreen from './src/screens/LoginScreen';
+import TestScreen from './src/screens/TestScreen';
+
+/**
+ * Hauptkomponente zur Steuerung des App-Flows und des globalen Status.
+ * Main component controlling the app flow and global state.
+ */
 export default function App() {
+  // Navigationsstatus: 'HOME', 'LOGIN', 'TEST' | Navigation state: 'HOME', 'LOGIN', 'TEST'
+  const [currentScreen, setCurrentScreen] = useState('HOME');
+  
+  // Status für Backend-Testdaten und Ladezustand | State for backend test data and loading status
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  const API_URL = BACKEND_URL
+  // API-Endpunkt aus Umgebungsvariablen | API endpoint from environment variables
+  const API_URL = BACKEND_URL;
 
+  /**
+   * Führt eine Test-Anfrage an das konfigurierte Backend aus.
+   * Performs a test request to the configured backend.
+   */
   const testConnection = async () => {
     setLoading(true);
     try {
@@ -22,46 +39,30 @@ export default function App() {
     }
   };
 
-  return (
-    <View style={styles.container}>
-      <Text style={styles.title}>API Durchstich Test</Text>
-      
-      <Button title="Backend anfunken" onPress={testConnection} />
-
-      {loading && <ActivityIndicator size="large" color="#0000ff" />}
-      
-      {data && (
-        <View style={styles.resultBox}>
-          <Text>Antwort vom Server:</Text>
-          <Text style={styles.resultText}>{data}</Text>
-        </View>
-      )}
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20
-  },
-  title: {
-    fontSize: 22,
-    marginBottom: 20,
-    fontWeight: 'bold'
-  },
-  resultBox: {
-    marginTop: 30,
-    padding: 15,
-    backgroundColor: '#f0f0f0',
-    borderRadius: 10
-  },
-  resultText: {
-    fontSize: 18,
-    color: 'green',
-    fontWeight: 'bold'
+  /**
+   * Bedingtes Rendering basierend auf dem Navigations-Status (Switch-Logik).
+   * Conditional rendering based on navigation state (switch logic).
+   */
+  switch (currentScreen) {
+    case 'HOME':
+      return <HomeScreen onNavigateToLogin={() => setCurrentScreen('LOGIN')} />;
+    case 'LOGIN':
+      return (
+        <LoginScreen 
+          onLoginSuccess={() => setCurrentScreen('TEST')} 
+          onBack={() => setCurrentScreen('HOME')} 
+        />
+      );
+    case 'TEST':
+      return (
+        <TestScreen 
+          data={data} 
+          loading={loading} 
+          onTest={testConnection} 
+          onLogout={() => setCurrentScreen('HOME')} 
+        />
+      );
+    default:
+      return <HomeScreen onNavigateToLogin={() => setCurrentScreen('LOGIN')} />;
   }
-});
+}
