@@ -9,24 +9,19 @@ import RegisterScreen from './src/screens/RegisterScreen';
 import TestScreen from './src/screens/TestScreen';
 
 /**
- * Hauptkomponente zur Steuerung des Anwendungsflusses und der Authentifizierungslogik.
- * Main component for controlling application flow and authentication logic.
+ * Hauptkomponente zur Steuerung des Anwendungsflusses.
+ * Main component for controlling the application flow.
  */
 export default function App() {
-  /** * Navigation-Status: 'HOME', 'LOGIN', 'REGISTER', 'TEST' 
-   * Navigation state: 'HOME', 'LOGIN', 'REGISTER', 'TEST'
-   */
   const [currentScreen, setCurrentScreen] = useState('HOME');
-  
-  /** * Status für API-Antwortdaten und Ladeindikatoren 
-   * State for API response data and loading indicators 
-   */
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
-
-  /** * Basis-URL aus der Umgebungskonfiguration 
-   * Base URL from environment configuration 
+  
+  /** * Status für spezifische Fehlermeldungen im Login-Prozess.
+   * State for specific error messages during the login process.
    */
+  const [loginError, setLoginError] = useState(null);
+
   const API_URL = BACKEND_URL;
 
   /**
@@ -41,19 +36,17 @@ export default function App() {
       setData(json.nachricht);
     } catch (error) {
       setData("Fehler: Backend nicht erreichbar | Error: Backend unreachable");
-      console.error(error);
     } finally {
       setLoading(false);
     }
   };
 
   /**
-   * Übermittelt Registrierungsdaten per POST an das Backend.
-   * Transmits registration data to the backend via POST.
+   * Übermittelt Registrierungsdaten an das Backend (POST /register).
+   * Submits registration data to the backend (POST /register).
    */
   const handleRegister = async (email, password) => {
     setLoading(true);
-    setData(null);
     try {
       const response = await fetch(`${API_URL}/register`, {
         method: 'POST',
@@ -66,7 +59,7 @@ export default function App() {
         setData(json.nachricht);
         setCurrentScreen('TEST');
       } else {
-        setData(json.fehler || "Registrierung fehlgeschlagen | Registration failed");
+        setData(json.fehler || "Registrierung fehlgeschlagen");
         setCurrentScreen('TEST');
       }
     } catch (error) {
@@ -78,53 +71,53 @@ export default function App() {
   };
 
   /**
-   * Übermittelt Login-Daten an das Backend zur Verifizierung (POST /login).
-   * Submits login data to the backend for verification (POST /login).
-   * * @param {string} email - Benutzer-E-Mail | User email
-   * @param {string} password - Benutzer-Passwort | User password
+   * Authentifiziert den Benutzer und verwaltet Fehler lokal im LoginScreen.
+   * Authenticates the user and manages errors locally within the LoginScreen.
    */
   const handleLogin = async (email, password) => {
     setLoading(true);
-    setData(null);
+    setLoginError(null);
+
     try {
       const response = await fetch(`${API_URL}/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
       });
+
       const json = await response.json();
 
       if (response.ok) {
-        /** * Erfolgreicher Login: Benutzerinfo speichern und navigieren 
-         * Successful login: store user info and navigate 
+        /** * Navigation nur bei erfolgreicher Authentifizierung.
+         * Navigation only upon successful authentication.
          */
-        setData(`Login erfolgreich! Willkommen ${json.user.email}`);
+        setData(`Erfolgreich angemeldet: ${json.user.email}`);
         setCurrentScreen('TEST');
       } else {
-        /** * Fehlerbehandlung bei falschen Zugangsdaten 
-         * Error handling for invalid credentials 
+        /** * Fehler wird lokal gespeichert und im LoginScreen angezeigt.
+         * Error is stored locally and displayed in the LoginScreen.
          */
-        setData(json.fehler || "Login fehlgeschlagen | Login failed");
-        setCurrentScreen('TEST');
+        setLoginError(json.fehler || "Login fehlgeschlagen");
       }
     } catch (error) {
-      setData("Netzwerkfehler beim Login | Network error during login");
-      setCurrentScreen('TEST');
-      console.error(error);
+      setLoginError("Netzwerkfehler: Backend nicht erreichbar");
     } finally {
       setLoading(false);
     }
   };
 
   /**
-   * Bedingtes Rendering basierend auf dem aktuellen Navigationsstatus.
-   * Conditional rendering based on the current navigation state.
+   * Zentrales Navigations-Management.
+   * Central navigation management.
    */
   switch (currentScreen) {
     case 'HOME':
       return (
         <HomeScreen 
-          onNavigateToLogin={() => setCurrentScreen('LOGIN')} 
+          onNavigateToLogin={() => {
+            setLoginError(null);
+            setCurrentScreen('LOGIN');
+          }} 
           onNavigateToRegister={() => setCurrentScreen('REGISTER')} 
         />
       );
@@ -132,6 +125,7 @@ export default function App() {
       return (
         <LoginScreen 
           onLogin={handleLogin} 
+          errorMessage={loginError}
           onBack={() => setCurrentScreen('HOME')} 
         />
       );

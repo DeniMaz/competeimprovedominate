@@ -2,18 +2,27 @@ import React, { useState } from 'react';
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, Button } from 'react-native';
 
 /**
- * Komponente für das Login-Formular.
- * Component for the login form.
- * * @param {Object} props - Funktionen für Login und Navigation | Functions for login and navigation
+ * Bildschirm für die Benutzeranmeldung mit integrierter Fehleranzeige.
+ * Screen for user login with integrated error display.
+ * * @param {Object} props - Funktionen und Fehlerstatus | Functions and error state
  */
-export default function LoginScreen({ onLogin, onBack }) {
+export default function LoginScreen({ onLogin, onBack, errorMessage }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Login</Text>
-      
+
+      {/** * Bedingtes Rendering der Fehlermeldung.
+       * Conditional rendering of the error message.
+       */}
+      {errorMessage && (
+        <View style={styles.errorBox}>
+          <Text style={styles.errorText}>{errorMessage}</Text>
+        </View>
+      )}
+
       <TextInput
         style={styles.input}
         placeholder="E-Mail"
@@ -56,6 +65,20 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 20
   },
+  errorBox: {
+    backgroundColor: '#ffebee',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 15,
+    width: '100%',
+    borderWidth: 1,
+    borderColor: '#f44336',
+  },
+  errorText: {
+    color: '#d32f2f',
+    textAlign: 'center',
+    fontWeight: '500',
+  },
   input: {
     width: '100%',
     height: 50,
@@ -72,7 +95,8 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     width: '100%',
     alignItems: 'center',
-    marginBottom: 10
+    marginTop: 10,
+    marginBottom: 20
   },
   buttonText: {
     color: '#fff',
