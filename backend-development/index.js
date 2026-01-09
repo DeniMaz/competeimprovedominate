@@ -5,6 +5,7 @@ const { getFirestore } = require('firebase-admin/firestore');
 
 const app = express();
 app.use(express.json());
+app.use(cors());
 
 if (!admin.apps.length) {
     admin.initializeApp();
