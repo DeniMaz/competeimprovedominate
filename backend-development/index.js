@@ -5,19 +5,21 @@ const cors = require('cors');
 const { getFirestore } = require('firebase-admin/firestore');
 
 const app = express();
-app.use(cors());
-app.use(express.json());
+app.use(cors()); // Ermöglicht Cross-Origin-Requests von deiner App
+app.use(express.json()); // Parst JSON-Bodies in Requests
 
+// Initialisiere Firebase-Admin, falls noch nicht geschehen
 if (!admin.apps.length) {
-    admin.initializeApp();
+    admin.initializeApp(); // Hier könntest du Credentials hinzufügen, z.B. serviceAccountKey.json
 }
 
 /**
  * Zugriff auf die spezifische Firestore-Datenbankinstanz.
  * Accessing the specific Firestore database instance.
  */
-const db = getFirestore("cid-development-database");
+const db = getFirestore("cid-development-database"); // Deine DB-Name
 
+// Status-Endpoint zum Testen
 app.get('/status', (req, res) => {
     res.json({ nachricht: "Backend ist online! Hallo Welt!" });
 });
@@ -25,14 +27,15 @@ app.get('/status', (req, res) => {
 /**
  * Registrierung eines neuen Benutzers.
  * Registration of a new user.
+ * Speichert E-Mail, gehashtes Passwort und initial leere Tracking-Daten.
  */
 app.post('/register', async (req, res) => {
     try {
         const { email, password } = req.body;
-        if (!email || !password) return res.status(400).json({ fehler: "Daten unvollständig." });
+        if (!email || !password) return res.status(400).json({ fehler: "E-Mail oder Passwort fehlt." });
 
-        const hashedPassword = await bcrypt.hash(password, 10);
-        const userRef = db.collection('users').doc(email);
+        const hashedPassword = await bcrypt.hash(password, 10); // Sicheres Hashing des Passworts
+        const userRef = db.collection('users').doc(email); // Dokument-ID ist die E-Mail
         const doc = await userRef.get();
 
         if (doc.exists) return res.status(400).json({ fehler: "Benutzer existiert bereits." });
@@ -40,19 +43,23 @@ app.post('/register', async (req, res) => {
         await userRef.set({
             email,
             password: hashedPassword,
-            userData: "", // Initial leerer Datensatz | Initially empty data record
-            createdAt: admin.firestore.FieldValue.serverTimestamp()
+            userData: { // Initiale Struktur für Fitness-Tracking-Daten (erweiterbar)
+                workouts: [], // Array für Workouts (z.B. [{ date: '2026-01-16', type: 'Laufen', duration: 30 }])
+                progress: {}, // Objekt für Fortschritte (z.B. { weight: 75, goals: 'Abnehmen' })
+                lastSync: null // Letzte Synchronisation
+            },
+            createdAt: admin.firestore.FieldValue.serverTimestamp() // Server-Zeitstempel
         });
 
-        res.status(201).json({ nachricht: "Registrierung erfolgreich." });
+        res.status(201).json({ nachricht: "Registrierung erfolgreich. Willkommen in der Fitness-App!" });
     } catch (error) {
-        res.status(500).json({ fehler: error.message });
+        res.status(500).json({ fehler: `Fehler bei der Registrierung: ${error.message}` });
     }
 });
 
 /**
- * Login-Endpunkt: Sendet jetzt auch vorhandene 'userData' zurück.
- * Login endpoint: Now also returns existing 'userData'.
+ * Login-Endpunkt: Überprüft Credentials und sendet gespeicherte Tracking-Daten zurück.
+ * Login endpoint: Checks credentials and returns stored tracking data.
  */
 app.post('/login', async (req, res) => {
     try {
@@ -63,43 +70,41 @@ app.post('/login', async (req, res) => {
         if (!doc.exists) return res.status(401).json({ fehler: "Benutzer nicht gefunden." });
 
         const user = doc.data();
-        const isMatch = await bcrypt.compare(password, user.password);
+        const isMatch = await bcrypt.compare(password, user.password); // Vergleiche gehashtes Passwort
 
         if (!isMatch) return res.status(401).json({ fehler: "Ungültiges Passwort." });
 
-        /**
-         * Erfolg: Sende E-Mail und die gespeicherten Daten an die App.
-         * Success: Send email and stored data to the app.
-         */
-        res.status(200).json({ 
+        // Erfolg: Sende E-Mail und gespeicherte Fitness-Daten zurück
+        res.status(200).json({
             nachricht: "Login erfolgreich.",
-            user: { 
+            user: {
                 email: user.email,
-                userData: user.userData || "" // Rückgabe der Profildaten | Returning profile data
+                userData: user.userData || { workouts: [], progress: {} } // Rückgabe der Tracking-Daten
             }
         });
     } catch (error) {
-        res.status(500).json({ fehler: "Interner Serverfehler." });
+        res.status(500).json({ fehler: `Interner Serverfehler: ${error.message}` });
     }
 });
 
 /**
- * Speichern der Benutzerdaten.
- * Saving user data.
+ * Speichern der Benutzerdaten (z.B. neue Tracking-Daten).
+ * Saving user data (e.g., new tracking data).
+ * Die App sendet aktualisierte Daten, die hier überschrieben/aktualisiert werden.
  */
 app.post('/save-data', async (req, res) => {
     try {
-        const { email, userData } = req.body;
+        const { email, userData } = req.body; // userData ist ein JSON-Objekt mit Tracking-Infos
         const userRef = db.collection('users').doc(email);
-        
+
         await userRef.update({
-            userData: userData,
-            lastUpdate: admin.firestore.FieldValue.serverTimestamp()
+            userData: userData, // Überschreibe die alten Daten mit den neuen
+            lastUpdate: admin.firestore.FieldValue.serverTimestamp() // Aktualisierungs-Zeitstempel
         });
 
-        res.status(200).json({ nachricht: "Daten synchronisiert." });
+        res.status(200).json({ nachricht: "Tracking-Daten erfolgreich synchronisiert." });
     } catch (error) {
-        res.status(500).json({ fehler: "Fehler beim Speichern." });
+        res.status(500).json({ fehler: `Fehler beim Speichern der Daten: ${error.message}` });
     }
 });
 
