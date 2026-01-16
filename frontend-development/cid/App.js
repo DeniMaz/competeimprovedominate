@@ -106,55 +106,52 @@ export default function App() {
       setIsLoggedIn(false);
     } catch (e) {
       console.error("Fehler beim Logout/Sync:", e);
-      alert("Fehler beim Speichern. Du wirst trotzdem ausgeloggt.");
+      Alert.alert("Hinweis", "Fehler beim Speichern. Du wirst trotzdem ausgeloggt.");
       setIsLoggedIn(false);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDeleteAccount = async () => {
-    Alert.alert(
-      "Konto löschen",
-      "Willst du dein Konto wirklich endgültig löschen? Das kann man nicht rückgängig machen.",
-      [
-        { text: "Abbrechen", style: "cancel" },
-        {
-          text: "Löschen",
-          style: "destructive",
-          onPress: async () => {
-            setLoading(true);
-            try {
-              const res = await fetch(`${API_URL}/delete-account`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ email: userEmail }),
-              });
+  // ✅ wird vom TestScreen mit Passwort aufgerufen: onDeleteAccount(deletePassword)
+  const handleDeleteAccount = async (password) => {
+    if (!password || !password.trim()) {
+      Alert.alert("Passwort fehlt", "Bitte Passwort eingeben.");
+      return;
+    }
 
-              const json = await res.json();
+    setLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/delete-account`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: userEmail, password }),
+      });
 
-              if (!res.ok) {
-                alert(json.fehler || "Fehler beim Löschen.");
-                return;
-              }
+      const json = await res.json();
 
-              await AsyncStorage.multiRemove(['@is_logged_in', '@user_email', '@user_text']);
-              setUserEmail('');
-              setUserText('');
-              setData(null);
-              setIsLoggedIn(false);
+      if (!res.ok) {
+        Alert.alert("Fehler", json.fehler || "Fehler beim Löschen.");
+        throw new Error(json.fehler || "Delete failed");
+      }
 
-              alert("Konto wurde gelöscht.");
-            } catch (e) {
-              console.error(e);
-              alert("Netzwerkfehler beim Löschen.");
-            } finally {
-              setLoading(false);
-            }
-          }
-        }
-      ]
-    );
+      await AsyncStorage.multiRemove(['@is_logged_in', '@user_email', '@user_text']);
+      setUserEmail('');
+      setUserText('');
+      setData(null);
+      setIsLoggedIn(false);
+
+      Alert.alert("Erfolg", "Konto wurde gelöscht.");
+    } catch (e) {
+      console.error(e);
+      // TestScreen lässt Modal offen bei Fehler -> ok
+      if (!String(e?.message || "").includes("Delete failed")) {
+        Alert.alert("Fehler", "Netzwerkfehler beim Löschen.");
+      }
+      throw e;
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (!isAppReady) return null;
@@ -171,7 +168,7 @@ export default function App() {
                 setUserText={setUserText}
                 onLogout={handleLogout}
                 onTest={testConnection}
-                onDeleteAccount={handleDeleteAccount}
+                onDeleteAccount={handleDeleteAccount}   // ✅ wichtig
                 data={data}
                 loading={loading}
               />

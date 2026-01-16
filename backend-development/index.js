@@ -88,17 +88,34 @@ app.post('/save-data', async (req, res) => {
 
 app.post('/delete-account', async (req, res) => {
   try {
-    const { email } = req.body;
-    if (!email) return res.status(400).json({ fehler: "Email fehlt." });
+    const { email, password } = req.body;
 
-    await db.collection('users').doc(email).delete();
-    res.json({ nachricht: "Konto gelöscht." });
-  } catch (e) {
-    res.status(500).json({ fehler: e.message });
+    if (!email || !password) {
+      return res.status(400).json({ fehler: "Email und Passwort erforderlich." });
+    }
+
+    // User aus Firestore laden
+    const userRef = db.collection('users').doc(email);
+    const doc = await userRef.get();
+
+    if (!doc.exists) {
+      return res.status(404).json({ fehler: "Benutzer nicht gefunden." });
+    }
+
+    const userData = doc.data();
+
+    // Passwort prüfen (weil du beim Register bcrypt nutzt)
+    const ok = await bcrypt.compare(password, userData.password);
+    if (!ok) {
+      return res.status(401).json({ fehler: "Falsches Passwort." });
+    }
+
+    // Löschen
+    await userRef.delete();
+
+    return res.status(200).json({ nachricht: "User deleted successfully" });
+  } catch (err) {
+    console.error("Delete error:", err);
+    return res.status(500).json({ fehler: "Serverfehler beim Löschen." });
   }
-});
-
-const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => {
-  console.log("Backend läuft auf Port", PORT);
 });
