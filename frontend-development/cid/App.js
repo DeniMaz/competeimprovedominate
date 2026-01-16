@@ -4,6 +4,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BACKEND_URL } from '@env';
+import { Alert } from 'react-native';
 
 // Screens importieren
 import HomeScreen from './src/screens/HomeScreen';
@@ -19,12 +20,11 @@ export default function App() {
   const [userEmail, setUserEmail] = useState('');
   const [userText, setUserText] = useState('');
   const [loading, setLoading] = useState(false);
-  const [data, setData] = useState(null); 
+  const [data, setData] = useState(null);
   const [loginError, setLoginError] = useState(null);
 
   const API_URL = BACKEND_URL;
 
-  // 1. INITIALES LADEN: Sitzung beim App-Start wiederherstellen
   useEffect(() => {
     const loadInitialState = async () => {
       try {
@@ -38,7 +38,7 @@ export default function App() {
           setIsLoggedIn(true);
         }
       } catch (e) {
-        console.error("Fehler beim Laden:", e);
+        console.error("Fehler beim Laden des lokalen Speichers:", e);
       } finally {
         setIsAppReady(true);
       }
@@ -46,23 +46,6 @@ export default function App() {
     loadInitialState();
   }, []);
 
-  // 2. NEU: AUTO-SAVE LOGIK
-  // Speichert den Text lokal auf dem Handy, sobald er sich ändert
-  useEffect(() => {
-    const saveProgressLocally = async () => {
-      if (isLoggedIn && isAppReady) {
-        try {
-          await AsyncStorage.setItem('@user_text', userText);
-          // console.log("Lokal zwischengespeichert"); // Zum Debuggen
-        } catch (e) {
-          console.error("Fehler beim Zwischenspeichern:", e);
-        }
-      }
-    };
-    saveProgressLocally();
-  }, [userText, isLoggedIn, isAppReady]);
-
-  // 3. VERBINDUNGSTEST (/status)
   const testConnection = async () => {
     setLoading(true);
     try {
@@ -70,13 +53,13 @@ export default function App() {
       const json = await response.json();
       setData(json.nachricht);
     } catch (e) {
-      setData("Verbindungsfehler");
+      setData("Verbindungsfehler: Backend nicht erreichbar");
+      console.error(e);
     } finally {
       setLoading(false);
     }
   };
 
-  // 4. LOGIN HANDLER
   const handleLogin = async (email, password) => {
     setLoading(true);
     setLoginError(null);
@@ -92,12 +75,7 @@ export default function App() {
         await AsyncStorage.setItem('@is_logged_in', 'true');
         await AsyncStorage.setItem('@user_email', email);
         await AsyncStorage.setItem('@user_text', json.user.userData || '');
-<<<<<<< HEAD
 
-        // App State aktualisieren
-=======
-        
->>>>>>> 017c5743c29f6f3112d146f281014f14c63b21ab
         setUserEmail(email);
         setUserText(json.user.userData || '');
         setIsLoggedIn(true);
@@ -105,90 +83,80 @@ export default function App() {
         setLoginError(json.fehler || "Login fehlgeschlagen");
       }
     } catch (e) {
-      setLoginError("Netzwerkfehler");
+      setLoginError("Netzwerkfehler: Bitte Internetverbindung prüfen");
     } finally {
       setLoading(false);
     }
   };
 
-  // 5. LOGOUT HANDLER (mit Cloud-Sync)
   const handleLogout = async () => {
     setLoading(true);
     try {
-      // Synchronisation mit Firestore
       await fetch(`${API_URL}/save-data`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: userEmail, userData: userText }),
       });
 
-      // Lokale Daten erst NACH dem Sync löschen
       await AsyncStorage.multiRemove(['@is_logged_in', '@user_email', '@user_text']);
-<<<<<<< HEAD
 
-      // 3. States zurücksetzen
-=======
-      
->>>>>>> 017c5743c29f6f3112d146f281014f14c63b21ab
       setUserEmail('');
       setUserText('');
       setData(null);
       setIsLoggedIn(false);
     } catch (e) {
-      console.error("Sync-Fehler beim Logout:", e);
-      setIsLoggedIn(false); // Trotzdem ausloggen
+      console.error("Fehler beim Logout/Sync:", e);
+      alert("Fehler beim Speichern. Du wirst trotzdem ausgeloggt.");
+      setIsLoggedIn(false);
     } finally {
       setLoading(false);
     }
   };
 
-<<<<<<< HEAD
-  /**
-   * ✅ Nutzerkonto löschen (Backend) + lokale Session löschen
-   * Erwartet Backend Endpoint: POST /delete-account  Body: { email }
-   */
   const handleDeleteAccount = async () => {
-    if (!userEmail) {
-      alert("Kein User eingeloggt.");
-      return;
-    }
+    Alert.alert(
+      "Konto löschen",
+      "Willst du dein Konto wirklich endgültig löschen? Das kann man nicht rückgängig machen.",
+      [
+        { text: "Abbrechen", style: "cancel" },
+        {
+          text: "Löschen",
+          style: "destructive",
+          onPress: async () => {
+            setLoading(true);
+            try {
+              const res = await fetch(`${API_URL}/delete-account`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email: userEmail }),
+              });
 
-    setLoading(true);
-    try {
-      const response = await fetch(`${API_URL}/delete-account`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: userEmail }),
-      });
+              const json = await res.json();
 
-      const json = await response.json();
+              if (!res.ok) {
+                alert(json.fehler || "Fehler beim Löschen.");
+                return;
+              }
 
-      if (!response.ok) {
-        alert(json.fehler || "Konto konnte nicht gelöscht werden.");
-        return;
-      }
+              await AsyncStorage.multiRemove(['@is_logged_in', '@user_email', '@user_text']);
+              setUserEmail('');
+              setUserText('');
+              setData(null);
+              setIsLoggedIn(false);
 
-      // lokale Session löschen
-      await AsyncStorage.multiRemove(['@is_logged_in', '@user_email', '@user_text']);
-
-      // States reset
-      setUserEmail('');
-      setUserText('');
-      setData(null);
-      setIsLoggedIn(false);
-
-      alert("Konto wurde gelöscht.");
-    } catch (e) {
-      console.error("Fehler beim Konto löschen:", e);
-      alert("Netzwerkfehler: Konto konnte nicht gelöscht werden.");
-    } finally {
-      setLoading(false);
-    }
+              alert("Konto wurde gelöscht.");
+            } catch (e) {
+              console.error(e);
+              alert("Netzwerkfehler beim Löschen.");
+            } finally {
+              setLoading(false);
+            }
+          }
+        }
+      ]
+    );
   };
 
-  // Splash-Screen Logik (wartet bis AsyncStorage bereit ist)
-=======
->>>>>>> 017c5743c29f6f3112d146f281014f14c63b21ab
   if (!isAppReady) return null;
 
   return (
@@ -203,7 +171,7 @@ export default function App() {
                 setUserText={setUserText}
                 onLogout={handleLogout}
                 onTest={testConnection}
-                onDeleteAccount={handleDeleteAccount}   // ✅ HIER
+                onDeleteAccount={handleDeleteAccount}
                 data={data}
                 loading={loading}
               />
